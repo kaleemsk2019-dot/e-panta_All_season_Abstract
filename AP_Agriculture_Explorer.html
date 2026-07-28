@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AP Agriculture Data Explorer | Year • Season • District</title>
+<style>
+:root{
+  --primary:#1a3e72;
+  --primary-light:#2f5fa8;
+  --accent:#ff6a00;
+  --kharif:#1f8f4e;
+  --kharif-light:#34c86c;
+  --rabi:#d35400;
+  --rabi-light:#f39c12;
+  --pos:#1f8f4e;
+  --neg:#d64545;
+  --bg:#eef2f7;
+  --card:#ffffff;
+  --muted:#6b7a90;
+  --radius:16px;
+  --shadow:0 8px 24px rgba(20,40,80,0.10);
+  --shadow-hover:0 14px 34px rgba(20,40,80,0.16);
+}
+*{box-sizing:border-box;}
+body{
+  margin:0;
+  font-family:"Segoe UI",Roboto,Arial,sans-serif;
+  background:linear-gradient(160deg,#eef2f7 0%,#e4ecf7 100%);
+  color:#1e2a38;
+  min-height:100vh;
+}
+.topbar{
+  background:linear-gradient(120deg,var(--primary) 0%,var(--primary-light) 60%,#3f6fbf 100%);
+  color:#fff;
+  padding:28px 20px 60px;
+  text-align:center;
+  position:relative;
+  overflow:hidden;
+}
+.topbar::before{
+  content:"";
+  position:absolute;
+  top:-60px;right:-60px;
+  width:220px;height:220px;
+  background:radial-gradient(circle,rgba(255,255,255,0.15),transparent 70%);
+  border-radius:50%;
+}
+.topbar::after{
+  content:"";
+  position:absolute;
+  bottom:-80px;left:-40px;
+  width:260px;height:260px;
+  background:radial-gradient(circle,rgba(255,255,255,0.10),transparent 70%);
+  border-radius:50%;
+}
+.topbar h1{
+  margin:0 0 6px;
+  font-size:clamp(20px,4vw,32px);
+  font-weight:800;
+  letter-spacing:0.3px;
+}
+.topbar p{
+  margin:0;
+  font-size:14px;
+  opacity:0.9;
+  font-weight:400;
+}
+.badge-row{
+  display:flex;
+  gap:10px;
+  justify-content:center;
+  flex-wrap:wrap;
+  margin-top:14px;
+}
+.badge-pill{
+  background:rgba(255,255,255,0.18);
+  border:1px solid rgba(255,255,255,0.35);
+  padding:5px 14px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:600;
+  backdrop-filter:blur(4px);
+}
+
+.wrap{
+  max-width:1240px;
+  margin:-40px auto 40px;
+  padding:0 16px;
+}
+
+.control-panel{
+  background:var(--card);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding:22px;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:16px;
+  position:relative;
+  z-index:2;
+}
+@media(max-width:760px){
+  .control-panel{grid-template-columns:1fr;}
+}
+.field{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.field label{
+  font-size:12px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:0.6px;
+  color:var(--primary);
+}
+select{
+  width:100%;
+  padding:12px 14px;
+  border-radius:12px;
+  border:2px solid #dbe4f0;
+  background:#fbfdff;
+  font-size:15px;
+  font-weight:600;
+  color:var(--primary);
+  cursor:pointer;
+  appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg fill='%231a3e72' height='22' viewBox='0 0 24 24' width='22' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
+  background-repeat:no-repeat;
+  background-position:right 12px center;
+  transition:0.2s;
+}
+select:hover{border-color:var(--primary-light);}
+select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px rgba(255,106,0,0.15);}
+
+.reset-row{
+  grid-column:1/-1;
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+}
+.reset-btn{
+  background:#f1f5fb;
+  color:var(--primary);
+  border:2px solid #dbe4f0;
+  padding:9px 18px;
+  border-radius:10px;
+  font-weight:700;
+  font-size:13px;
+  cursor:pointer;
+  transition:0.2s;
+}
+.reset-btn:hover{background:var(--primary);color:#fff;border-color:var(--primary);}
+
+/* ===== Results Area ===== */
+.results{margin-top:26px;}
+
+.summary-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-bottom:16px;
+}
+.summary-title{
+  font-size:19px;
+  font-weight:800;
+  color:var(--primary);
+}
+.season-tag{
+  padding:5px 14px;
+  border-radius:20px;
+  font-size:12px;
+  font-weight:800;
+  color:#fff;
+  letter-spacing:0.4px;
+}
+.season-tag.Kharif{background:linear-gradient(120deg,var(--kharif),var(--kharif-light));}
+.season-tag.Rabi{background:linear-gradient(120deg,var(--rabi),var(--rabi-light));}
+
+/* ===== Compare Cards (single district view) ===== */
+.compare-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:18px;
+  margin-bottom:22px;
+}
+.compare-card{
+  background:var(--card);
+  border-radius:var(--radius);
+  padding:20px 22px;
+  box-shadow:var(--shadow);
+  transition:0.25s;
+  border-top:4px solid var(--primary-light);
+}
+.compare-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-hover);}
+.compare-card.extent{border-top-color:#42a5f5;}
+.compare-card.farmers{border-top-color:#f39c12;}
+.compare-card .label{
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:0.5px;
+  font-weight:700;
+  color:var(--muted);
+  margin-bottom:14px;
+}
+.compare-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.compare-val{
+  flex:1;
+  text-align:center;
+  padding:10px 6px;
+  border-radius:12px;
+  background:#f5f8fc;
+}
+.compare-val.current{
+  background:linear-gradient(135deg,#eef5ff,#e4edfb);
+  border:1px solid #cfe0f7;
+}
+.compare-val .yr{
+  display:block;
+  font-size:11px;
+  font-weight:700;
+  color:var(--muted);
+  text-transform:uppercase;
+  letter-spacing:0.4px;
+  margin-bottom:4px;
+}
+.compare-val .num{
+  display:block;
+  font-size:18px;
+  font-weight:800;
+  color:var(--primary);
+}
+.compare-arrow{
+  font-size:20px;
+  color:var(--accent);
+  font-weight:800;
+  flex-shrink:0;
+}
+.change-badge{
+  margin-top:14px;
+  text-align:center;
+  padding:8px;
+  border-radius:10px;
+  font-size:15px;
+  font-weight:800;
+}
+.change-badge.pos{background:#e8f8ee;color:var(--pos);}
+.change-badge.neg{background:#fdecec;color:var(--neg);}
+.change-badge.flat{background:#eef1f6;color:var(--muted);}
+
+.arrow{font-size:14px;margin-right:3px;}
+
+/* Table (all-district view) */
+.table-container{
+  width:100%;
+  overflow-x:auto;
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  background:var(--card);
+}
+table{
+  width:100%;
+  border-collapse:collapse;
+  min-width:900px;
+}
+thead th{
+  position:sticky;
+  top:0;
+  background:linear-gradient(120deg,var(--primary),var(--primary-light));
+  color:#fff;
+  padding:12px 10px;
+  font-size:12px;
+  text-transform:uppercase;
+  letter-spacing:0.3px;
+  text-align:center;
+  z-index:2;
+}
+thead tr.group-row th{
+  font-size:11.5px;
+  background:linear-gradient(120deg,var(--primary-light),#3f6fbf);
+}
+tbody td{
+  padding:10px;
+  font-size:13.5px;
+  text-align:center;
+  border-bottom:1px solid #eef1f6;
+  white-space:nowrap;
+}
+tbody td:nth-child(2){text-align:left;font-weight:700;color:#1e2a38;padding-left:16px;white-space:normal;}
+tbody tr:nth-child(even){background:#f7f9fc;}
+tbody tr:hover{background:#e4f0ff;}
+td.change.pos{color:var(--pos);font-weight:800;}
+td.change.neg{color:var(--neg);font-weight:800;}
+td.change.flat{color:var(--muted);}
+td.prevcol{color:var(--muted);}
+tfoot td{
+  background:var(--primary);
+  color:#fff;
+  font-weight:800;
+  padding:12px 10px;
+  font-size:13px;
+  text-align:center;
+}
+tfoot td:nth-child(2){text-align:left;padding-left:16px;}
+
+.na-badge{
+  display:inline-block;
+  padding:3px 10px;
+  border-radius:12px;
+  background:#eef1f6;
+  color:var(--muted);
+  font-size:12px;
+  font-weight:700;
+}
+
+/* Trend table below cards */
+.trend-title{
+  font-size:15px;
+  font-weight:800;
+  color:var(--primary);
+  margin:26px 0 12px;
+}
+
+.footer-note{
+  text-align:center;
+  font-size:12px;
+  color:var(--muted);
+  margin:30px 0 10px;
+}
+
+@media(max-width:520px){
+  .compare-val .num{font-size:15px;}
+  thead th, tbody td{font-size:11.5px;padding:8px 6px;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>🌾 Andhra Pradesh e-Panta Data Explorer</h1>
+  <p>Season-wise Extent &amp; Farmer coverage across 26 districts (Kharif 2022 – Rabi 2025-26)</p>
+  <div class="badge-row">
+
+    <span class="badge-pill">Year-over-Year Comparison</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="control-panel">
+    <div class="field">
+      <label for="yearSelect">📅 Year</label>
+      <select id="yearSelect"></select>
+    </div>
+    <div class="field">
+      <label for="seasonSelect">🌱 Season</label>
+      <select id="seasonSelect"></select>
+    </div>
+    <div class="field">
+      <label for="districtSelect">📍 District</label>
+      <select id="districtSelect"></select>
+    </div>
+    <div class="reset-row">
+      <button class="reset-btn" id="resetBtn">↺ Reset Filters</button>
+    </div>
+  </div>
+
+  <div class="results" id="results"></div>
+
+
+</div>
+
+<script>
+/* ===================== DATA ===================== */
+// order per district: [K22e,K22f, R22-23e,R22-23f, K23e,K23f, R23-24e,R23-24f, K24e,K24f, R24-25e,R24-25f, K25e,K25f, R25-26e,R25-26f]
+const raw = {
+"ALLURI SITHARAMA RAJU":[108820,192795,41103.45,20580,293604.45,113723,37657.02,19241,306876.32,130741,41053.19,19886,442938.31,179640,70600.85,37815],
+"ANAKAPALLI":[202354,180777,40546.89,40825,249810.26,186503,39888.96,29204,281092.37,228511,40730.29,31017,353068.55,297354,95146.14,110032],
+"ANANTAPUR":[319522,943472,265497,73109,991902.7,292230,211922.1,55974,1053838,312254,205923.9,53675,1181654,335656,393966.69,113390],
+"ANNAMAYYA":[116095,100187,54245.53,39948,204650.6,109356,53756.64,32061,200556.7,108965,125000.6,56465,242696.1,119683,123743.73,73100],
+"BAPATLA":[266064,132713,298389.49,127893,261805.1,122567,292329.3,111694,267656,128725,321095.9,124770,356725.4,187923,475121.93,234887],
+"CHITTOOR":[183939,175112,47516.96,48695,246390.1,144824,56821.62,43391,256375.1,150545,70309.12,43701,330221.1,194081,100062.34,87168],
+"DR. B.R. AMBEDKAR K":[138782,90012,173236.2,100145,261098,160265,173259.1,98128,262425.4,158490,166819.2,93230,287568.9,210025,190017.35,125411],
+"EAST GODAVARI":[192120,95376,177090.33,72675,323256,112404,181627.5,69160,332105.5,112817,184162.9,67039,382338,144402,261088.18,115809],
+"ELURU":[250458,120426,227607.80,85509,483109.2,135202,206568.3,67313,490262.7,134532,200342.1,64778,547634.8,165124,333458.36,137039],
+"GUNTUR":[228153,119208,146587.98,60794,235904.3,99709,157227.4,58929,224813.3,91300,178578,68519,262293.6,124589,249181.42,122659],
+"KAKINADA":[231457,160716,182396.08,105511,307747.7,158182,181354.8,100087,324013.5,170338,184882.5,101827,386234,244349,239017.12,160526],
+"KRISHNA":[401317,178244,312433.29,115341,412910,162688,301637,106367,417877.7,174791,316910.8,129370,449281.6,202297,408203.81,209607],
+"KURNOOL":[903597,350769,214037.73,75077,1017399,384198,233270.9,74088,1054950,389639,214520.3,71593,1150305,402774,433686.46,156443],
+"NANDYAL":[525351,219310,398835.42,133464,551791.9,192526,339638.8,97134,576710.7,196916,319253.4,112840,759878,260391,755381.15,241133],
+"NTR":[232797,107724,79742.40,27756,313144.3,119355,49853.91,15972,322328.6,124919,85895.86,28654,424763.5,169940,185275.41,73670],
+"PALNADU":[395516,209126,111356.43,43920,375299,178426,97360.24,32310,435511.2,191312,159205.7,50656,691422.4,299448,331457.42,139510],
+"PARVATHIPURAM":[212252,118632,45910.19,24387,302323.9,127888,31637.59,11680,309458.5,131152,37821.69,14203,356892,154565,77498.4,51777],
+"PRAKASAM":[347243,160028,332266.43,130199,353677.9,146924,301217,95446,393489.9,152790,294507,95238,512084.7,205979,495408.96,194248],
+"S.P.S.R NELLORE":[92247,30023,345533.12,97803,177140.5,50247,297084.4,74412,126828.9,37573,338035.2,89461,293163.3,94089,478381.87,156354],
+"SRIKAKULAM":[670927,341848,84156.56,42278,467875.5,318338,131297.1,80739,475490.2,336335,128988.8,79837,567550.4,427138,246914.58,226172],
+"SRI SATYASAI":[402858,298835,173389.57,163703,424524.5,186099,70482.6,34641,513129,219529,83144.88,36380,538596.3,216000,152158.88,71933],
+"TIRUPATI":[82019,45059,201343.63,77569,144828.7,58782,202869.1,72033,135476.4,52674,203394.3,70548,180746.4,85226,312224.06,141199],
+"VISAKHAPATNAM":[13069,12063,4558.88,3776,22220.29,15450,4495.82,2763,21761.52,18354,4337.31,3091,24881.91,21587,7189.31,8756],
+"VIZIANAGARAM":[272650,231021,131495.33,105230,361200.4,222641,96869.07,52664,364570.4,212040,102868.6,60067,477427.1,341750,233295.1,218227],
+"WEST GODAVARI":[197825,105109,213885.16,104039,230445.1,109198,222686.9,104028,226613.2,103927,221340.6,99726,248462.5,127213,238354,124413],
+"Y.S.R":[231362,100899,293844.59,100285,303146.14,118505,316180.08,102691,303539.35,117952,306247.41,89524,289862.59,119962,472220.96,167016]
+};
+
+const districts = Object.keys(raw);
+const years = ["2022","2023","2024","2025"];
+
+/* Build normalized dataset: data[district][year] = {Kharif:{extent,farmers,label}, Rabi:{extent,farmers,label}} */
+const data = {};
+districts.forEach(d=>{
+  const v = raw[d];
+  data[d] = {};
+  years.forEach((y,i)=>{
+    const base = i*4;
+    data[d][y] = {
+      Kharif:{ extent:v[base],   farmers:v[base+1], label:"Kharif "+y },
+      Rabi:  { extent:v[base+2], farmers:v[base+3], label:"Rabi "+y+"-"+String(Number(y)+1).slice(2) }
+    };
+  });
+});
+
+/* ===================== HELPERS ===================== */
+function fmtNum(n){
+  return Number(n).toLocaleString('en-IN',{maximumFractionDigits:2});
+}
+function pctChange(curr, prev){
+  if(prev===null||prev===undefined||prev===0) return null;
+  return ((curr-prev)/prev)*100;
+}
+function chgClass(v){
+  if(v===null||v===undefined) return 'flat';
+  return v>=0 ? 'pos' : 'neg';
+}
+function chgArrow(v){
+  if(v===null||v===undefined) return '';
+  return v>=0 ? '▲' : '▼';
+}
+function chgText(v){
+  if(v===null||v===undefined) return '<span class="na-badge">No baseline</span>';
+  return '<span class="arrow">'+chgArrow(v)+'</span>'+Math.abs(v).toFixed(2)+'%';
+}
+function prevYearOf(year){
+  const i = years.indexOf(year);
+  return i>0 ? years[i-1] : null;
+}
+
+/* ===================== POPULATE SELECTS ===================== */
+const yearSelect = document.getElementById('yearSelect');
+const seasonSelect = document.getElementById('seasonSelect');
+const districtSelect = document.getElementById('districtSelect');
+
+years.forEach(y=>{
+  const opt = document.createElement('option');
+  opt.value = y;
+  opt.textContent = y;
+  yearSelect.appendChild(opt);
+});
+
+["Kharif","Rabi"].forEach(s=>{
+  const opt = document.createElement('option');
+  opt.value = s;
+  opt.textContent = s;
+  seasonSelect.appendChild(opt);
+});
+
+const allOpt = document.createElement('option');
+allOpt.value = "ALL";
+allOpt.textContent = "All Districts";
+districtSelect.appendChild(allOpt);
+districts.forEach(d=>{
+  const opt = document.createElement('option');
+  opt.value = d;
+  opt.textContent = d;
+  districtSelect.appendChild(opt);
+});
+
+yearSelect.value = "2025";
+seasonSelect.value = "Kharif";
+districtSelect.value = "ALL";
+
+/* ===================== RENDER ===================== */
+const resultsEl = document.getElementById('results');
+
+function render(){
+  const year = yearSelect.value;
+  const season = seasonSelect.value;
+  const district = districtSelect.value;
+
+  resultsEl.innerHTML = "";
+
+  const currLabel = data[districts[0]][year][season].label;
+
+  const header = document.createElement('div');
+  header.className = "summary-header";
+  header.innerHTML = `<div class="summary-title">${district==="ALL" ? "All Districts" : district} — ${currLabel}</div>
+    <div class="season-tag ${season}">${season}</div>`;
+  resultsEl.appendChild(header);
+
+  if(district === "ALL"){
+    renderTable(year, season);
+  } else {
+    renderCards(year, season, district);
+  }
+}
+
+function renderCards(year, season, district){
+  const prevYear = prevYearOf(year);
+  const curr = data[district][year][season];
+  const prev = prevYear ? data[district][prevYear][season] : null;
+
+  const extChg = prev ? pctChange(curr.extent, prev.extent) : null;
+  const farChg = prev ? pctChange(curr.farmers, prev.farmers) : null;
+
+  const grid = document.createElement('div');
+  grid.className = "compare-grid";
+  grid.innerHTML = `
+    <div class="compare-card extent">
+      <div class="label">Extent (Acres) — Previous vs Current</div>
+      <div class="compare-row">
+        <div class="compare-val">
+          <span class="yr">${prev ? prev.label : 'No prior data'}</span>
+          <span class="num">${prev ? fmtNum(prev.extent) : '—'}</span>
+        </div>
+        <div class="compare-arrow">→</div>
+        <div class="compare-val current">
+          <span class="yr">${curr.label}</span>
+          <span class="num">${fmtNum(curr.extent)}</span>
+        </div>
+      </div>
+      <div class="change-badge ${chgClass(extChg)}">${chgText(extChg)}</div>
+    </div>
+
+    <div class="compare-card farmers">
+      <div class="label">Farmers — Previous vs Current</div>
+      <div class="compare-row">
+        <div class="compare-val">
+          <span class="yr">${prev ? prev.label : 'No prior data'}</span>
+          <span class="num">${prev ? fmtNum(prev.farmers) : '—'}</span>
+        </div>
+        <div class="compare-arrow">→</div>
+        <div class="compare-val current">
+          <span class="yr">${curr.label}</span>
+          <span class="num">${fmtNum(curr.farmers)}</span>
+        </div>
+      </div>
+      <div class="change-badge ${chgClass(farChg)}">${chgText(farChg)}</div>
+    </div>
+  `;
+  resultsEl.appendChild(grid);
+
+  // 4-year trend table for this district & season, each row compared to its own previous year
+  const trendTitle = document.createElement('div');
+  trendTitle.className = "trend-title";
+  trendTitle.textContent = `${season} — 4 Year Trend for ${district}`;
+  resultsEl.appendChild(trendTitle);
+
+  const trendWrap = document.createElement('div');
+  trendWrap.className = "table-container";
+  let rows = "";
+  years.forEach(y=>{
+    const rec = data[district][y][season];
+    const py = prevYearOf(y);
+    const prec = py ? data[district][py][season] : null;
+    const eChg = prec ? pctChange(rec.extent, prec.extent) : null;
+    const fChg = prec ? pctChange(rec.farmers, prec.farmers) : null;
+    rows += `<tr ${y===year?'style="background:#e4f0ff;"':''}>
+      <td style="text-align:left;padding-left:16px;font-weight:700;white-space:normal;">${rec.label}</td>
+      <td class="prevcol">${prec ? fmtNum(prec.extent) : '—'}</td>
+      <td>${fmtNum(rec.extent)}</td>
+      <td class="change ${chgClass(eChg)}">${chgText(eChg)}</td>
+      <td class="prevcol">${prec ? fmtNum(prec.farmers) : '—'}</td>
+      <td>${fmtNum(rec.farmers)}</td>
+      <td class="change ${chgClass(fChg)}">${chgText(fChg)}</td>
+    </tr>`;
+  });
+  trendWrap.innerHTML = `<table>
+    <thead>
+      <tr>
+        <th rowspan="1" style="text-align:left;padding-left:16px;">Period</th>
+        <th>Previous Extent</th><th>Current Extent</th><th>Extent Chg%</th>
+        <th>Previous Farmers</th><th>Current Farmers</th><th>Farmers Chg%</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+  resultsEl.appendChild(trendWrap);
+}
+
+function renderTable(year, season){
+  const prevYear = prevYearOf(year);
+  const prevLabel = prevYear ? data[districts[0]][prevYear][season].label : "No prior data";
+  const currLabel = data[districts[0]][year][season].label;
+
+  const wrap = document.createElement('div');
+  wrap.className = "table-container";
+
+  let rows = "";
+  let totalPrevExt=0, totalCurrExt=0, totalPrevFar=0, totalCurrFar=0;
+  let havePrev = !!prevYear;
+
+  districts.forEach((d,idx)=>{
+    const curr = data[d][year][season];
+    const prev = prevYear ? data[d][prevYear][season] : null;
+    const eChg = prev ? pctChange(curr.extent, prev.extent) : null;
+    const fChg = prev ? pctChange(curr.farmers, prev.farmers) : null;
+
+    totalCurrExt += curr.extent;
+    totalCurrFar += curr.farmers;
+    if(prev){ totalPrevExt += prev.extent; totalPrevFar += prev.farmers; }
+
+    rows += `<tr>
+      <td>${idx+1}</td>
+      <td>${d}</td>
+      <td class="prevcol">${prev ? fmtNum(prev.extent) : '—'}</td>
+      <td>${fmtNum(curr.extent)}</td>
+      <td class="change ${chgClass(eChg)}">${chgText(eChg)}</td>
+      <td class="prevcol">${prev ? fmtNum(prev.farmers) : '—'}</td>
+      <td>${fmtNum(curr.farmers)}</td>
+      <td class="change ${chgClass(fChg)}">${chgText(fChg)}</td>
+    </tr>`;
+  });
+
+  const totalEChg = havePrev ? pctChange(totalCurrExt, totalPrevExt) : null;
+  const totalFChg = havePrev ? pctChange(totalCurrFar, totalPrevFar) : null;
+
+  wrap.innerHTML = `<table>
+    <thead>
+      <tr class="group-row">
+        <th></th><th></th>
+        <th colspan="3">Extent (Acres) — ${prevLabel} → ${currLabel}</th>
+        <th colspan="3">Farmers — ${prevLabel} → ${currLabel}</th>
+      </tr>
+      <tr>
+        <th>S.No</th><th>District</th>
+        <th>Previous</th><th>Current</th><th>Chg%</th>
+        <th>Previous</th><th>Current</th><th>Chg%</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+    <tfoot>
+      <tr>
+        <td colspan="2">TOTAL</td>
+        <td>${havePrev ? fmtNum(totalPrevExt) : '—'}</td>
+        <td>${fmtNum(totalCurrExt)}</td>
+        <td class="change ${chgClass(totalEChg)}" style="color:#fff;">${totalEChg!==null ? (chgArrow(totalEChg)+' '+Math.abs(totalEChg).toFixed(2)+'%') : 'N/A'}</td>
+        <td>${havePrev ? fmtNum(totalPrevFar) : '—'}</td>
+        <td>${fmtNum(totalCurrFar)}</td>
+        <td class="change ${chgClass(totalFChg)}" style="color:#fff;">${totalFChg!==null ? (chgArrow(totalFChg)+' '+Math.abs(totalFChg).toFixed(2)+'%') : 'N/A'}</td>
+      </tr>
+    </tfoot>
+  </table>`;
+  resultsEl.appendChild(wrap);
+}
+
+yearSelect.addEventListener('change', render);
+seasonSelect.addEventListener('change', render);
+districtSelect.addEventListener('change', render);
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  yearSelect.value="2025"; seasonSelect.value="Kharif"; districtSelect.value="ALL";
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
